@@ -1,0 +1,255 @@
+# First(program2) = {extern, int, float, bool, void, EOF}
+# 
+# LL(1) 
+program2 ::= program EOF
+        | EOF 
+
+# First(program) = {extern, int, float, bool, void}
+# 
+# LL(1) 
+program ::= extern_list decl_list
+            | decl_list
+
+# First(extern_list) = {extern, epsilon}
+# Follow(extern_list) = {EOF, int, float, bool, void}
+# LL(1) 
+extern_list ::= extern extern_list
+            | epsilon
+
+# First(extern) = {extern}
+# 
+# LL(0) 
+extern ::= "extern" type_spec IDENT "(" params ")" ";"
+
+# First(decl_list) = {void, int, float, bool, epsilon}
+# Follow(decl_list) = {EOF}
+# LL(1) 
+decl_list ::= decl decl_list
+            | epsilon
+
+# First(decl) = Union of groups indicated below
+#
+# LL(3) - First token is either {int, float, bool} for both productions or void for fun_decl
+#       - Second token is the identifier value => need to check if the third one is ";" or "("
+decl ::= var_decl       # {int, float, bool}
+        | fun_decl      # {void, int, float, bool}
+
+# First(fun_decl) = {void, int, float, bool}
+#
+# LL(0) 
+fun_decl ::= type_spec IDENT "(" params ")" block
+
+# First(var_decl) = {int, float, bool}
+#
+# LL(0) 
+var_decl ::= var_type IDENT ";"
+
+# First(var_type) = {int, float, bool}
+#
+# LL(1) 
+var_type ::= "int"  
+            | "float"
+            | "bool"
+
+# First(type_spec) = {void, int, float, bool}
+#
+# LL(1) 
+type_spec ::= "void"
+            | var_type
+
+# First(params) = {int, float, bool, void, epsilon}
+# Follow(params) = {")"}
+# LL(1) 
+params ::= param_list
+        | "void" 
+        | epsilon
+
+# First(param_list) = {int, float, bool}
+#
+# LL(0) 
+param_list ::= param param_list2
+
+# First(param_list2) = {",", epsilon}
+# Follow(param_list2) = {")"}
+# LL(1) 
+param_list2 ::= "," param param_list2
+            | epsilon
+
+# First(param) = {int, float, bool}
+#
+# LL(0) 
+param ::= var_type IDENT
+
+# First(block) = {"{"}
+#
+# LL(0) 
+block ::= "{" local_decls stmt_list "}"
+
+# First(local_decls) = {int, float, bool, epsilon}
+# Follow(local_decls) = {-, !, (, IDENT, INT_LIT, FLOAT_LIT, BOOL_LIT, "{", "}", "while", "if", "return"}
+# LL(1) 
+local_decls ::= local_decl local_decls 
+                | epsilon
+
+# First(local_decl) = {int, float, bool}
+#
+# LL(0) 
+local_decl ::= var_type IDENT ";"
+
+# First(stmt_list) = Union of the groups indicated below
+# Follow(stmt_list) = {"{"}
+# LL(1) 
+stmt_list ::= stmt stmt_list    #{-, !, (, IDENT, INT_LIT, FLOAT_LIT, BOOL_LIT, ";", "{", "while", "if", "return"}
+            | epsilon           #{epsilon}
+
+# First(stmt) = Union of the groups indicated below
+#
+# LL(1) 
+stmt ::= expr_stmt              #{-, !, (, IDENT, INT_LIT, FLOAT_LIT, BOOL_LIT, ";"}
+        | block                 #{"{"}
+        | if_stmt               #{if}
+        | while_stmt            #{while}
+        | return_stmt           #{return}
+
+# First(expr_stmt) = Union of groups below
+#
+# LL(1) 
+expr_stmt ::= expr ";"  # {-, !, (, IDENT, INT_LIT, FLOAT_LIT, BOOL_LIT}
+        | ";"           # {";"}
+
+# First(while_stmt) = {"while"}
+#
+# LL(0) 
+while_stmt ::= "while" "(" expr ")" stmt
+
+# First(if_stmt) = {"if"}
+#
+# LL(0) 
+if_stmt ::= "if" "(" expr ")" block else_stmt
+
+# First(else_stmt) = {"else", epsilon}
+# Follow(else_stmt) = {-, !, (, IDENT, INT_LIT, FLOAT_LIT, BOOL_LIT, "{", "}", "while", "if", "return"}
+# LL(1) 
+else_stmt ::= "else" block
+            | epsilon
+
+# First(return_stmt) = {"return"}
+#
+# LL(2) - check token after return
+return_stmt ::= "return" ";"
+            | "return" expr ";"
+
+
+# First(expr) = {-, !, (, IDENT, INT_LIT, FLOAT_LIT, BOOL_LIT}
+#
+# LL(2) - check token after IDENT("=" or "(")
+expr ::= IDENT "=" expr     # To check: IDENT =
+        | orterm            # To check: IDENT ( ! - INT_LIT FLOAT_LIT BOOL_LIT
+
+# First(orterm) = {-, !, (, IDENT, INT_LIT, FLOAT_LIT, BOOL_LIT}
+#
+# LL(0)
+orterm ::= andterm orterm2
+
+# First(orterm2) = {||, epsilon}
+# Follow(orterm2) = {")" ";" ","}
+# LL(1)
+orterm2 ::= "||" andterm orterm2
+        | epsilon
+
+# First(andterm) = {-, !, (, IDENT, INT_LIT, FLOAT_LIT, BOOL_LIT}
+#
+# LL(0)
+andterm ::= equiv andterm2
+
+# First(term2) ={&&, epsilon}
+# Follow(andterm2) = {")" ";" "," "||"}
+# LL(1)
+andterm2 ::= "&&" equiv term2
+        | epsilon
+
+# First(equiv) = {-, !, (, IDENT, INT_LIT, FLOAT_LIT, BOOL_LIT}
+#
+# LL(0)
+equiv ::= rel equiv2
+
+# First(equiv2) = {==, !=, epsilon}
+# Follow(equiv2) = {")" ";" "," "||" "&&"}
+# LL(1)
+equiv2 ::= "==" rel equiv2
+        | "!=" rel equiv2
+        | epsilon
+
+
+# First(rel) = {-, !, (, IDENT, INT_LIT, FLOAT_LIT, BOOL_LIT}
+#
+# LL(0)
+rel ::= subexpr rel2
+
+# First(rel2) = {<=, <, >=, >, epsilon}
+# Follow(rel2) = {")" ";" "," "||" "&&" "==" "!="}
+# LL(1)
+rel2 ::= "<=" subexpr rel2
+        | "<" subexpr rel2
+        | ">=" subexpr rel2
+        | ">" subexpr rel2
+        | epsilon
+
+# First(subexpr) = {-, !, (, IDENT, INT_LIT, FLOAT_LIT, BOOL_LIT}
+#
+# LL(0)
+subexpr ::= factor subexpr2
+
+# First(subexpr2) = {+, -, epsilon}
+# Follow(subexpr2) = {")" ";" "," "||" "&&" "==" "!=" "<=" "<" ">=" ">"}
+# LL(1)
+subexpr2 ::= "+" factor subexpr2
+            | "-" factor subexpr2
+            | epsilon
+
+# First(factor) = {-, !, (, IDENT, INT_LIT, FLOAT_LIT, BOOL_LIT}
+#
+# LL(0)
+factor ::= unary factor2
+
+# First(factor2) = {*, /, %, epsilon}
+# Follow(factor2) = {")" ";" "," "||" "&&" "==" "!=" "<=" "<" ">=" ">", "+", "-"}
+# LL(1)
+factor2 ::= "*" unary factor2
+        | "/" unary factor2
+        | "%" unary factor2
+        | epsilon
+
+# First(unary) = {-, !, (, IDENT, INT_LIT, FLOAT_LIT, BOOL_LIT}
+#
+# LL(1)
+unary ::= "-" unary
+        | "!" unary
+        | elem
+
+# First(elem) = {(, IDENT, INT_LIT, FLOAT_LIT, BOOL_LIT}
+#
+# LL(2) - check token after IDENT if needed
+elem ::= "(" expr ")" // expr
+        | IDENT //ident
+        | IDENT "(" args ")"  // funccall
+        | INT_LIT  // literal 
+        | FLOAT_LIT 
+        | BOOL_LIT
+
+# First(args) = {-, !, (, IDENT, INT_LIT, FLOAT_LIT, BOOL_LIT , epsilon}
+# Follow(args) = {")"}
+# LL(1)
+args ::= arg_list
+        | epsilon
+
+# First(arg_list) = {-, !, (, IDENT, INT_LIT, FLOAT_LIT, BOOL_LIT}
+#
+# LL(0)
+arg_list ::= expr arg_list2
+
+# First(arg_list2) = {"," , epsilon}
+# Follow(arg_list2) = {")"}
+# LL(1)
+arg_list2 ::= "," expr arglist2
+            | epsilon

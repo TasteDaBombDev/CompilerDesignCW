@@ -1,0 +1,205 @@
+# FIRST(program) = {EXTERN, VOID_TOK, INT_TOK, FLOAT_TOK, BOOL_TOK}
+# LL(1)
+program ::= extern_list decl_list         {EXTERN}         
+          | decl_list                     {VOID_TOK, INT_TOK, FLOAT_TOK, BOOL_TOK}
+
+# FIRST(extern_list) = {EXTERN}
+# LL(0)
+extern_list ::= extern extern_list' 
+
+# FIRST(extern_list') = {EXTERN, epsilon}
+# FOLLOW(extern_list') = {VOID_TOK, INT_TOK, FLOAT_TOK, BOOL_TOK}
+# LL(1)
+extern_list' ::= extern extern_list'      {EXTERN}
+               | epsilon                  {VOID_TOK, INT_TOK, FLOAT_TOK, BOOL_TOK}
+
+# FIRST(extern) = {EXTERN}
+# LL(0)
+extern ::= EXTERN type_spec IDENT LPAR params RPAR SC
+ 
+# FIRST(decl_list) = {VOID_TOK, INT_TOK, FLOAT_TOK, BOOL_TOK}
+# LL(0)
+decl_list ::= decl decl_list'
+
+# FIRST(decl_list') = {VOID_TOK, INT_TOK, FLOAT_TOK, BOOL_TOK, epsilon}
+# FOLLOW(decl_list') = {eof}
+# LL(1)
+decl_list' ::= decl decl_list'            {VOID_TOK, INT_TOK, FLOAT_TOK, BOOL_TOK}
+             | epsilon                    {eof}
+
+# FIRST(decl) = {VOID_TOK, INT_TOK, FLOAT_TOK, BOOL_TOK}
+# LL(3)
+decl ::= var_decl                         {INT_TOK IDENT SC, FLOAT_TOK IDENT SC, BOOL_TOK IDENT SC}
+       | fun_decl                         {VOID_TOK IDENT LPAR, INT_TOK IDENT LPAR, FLOAT_TOK IDENT LPAR, BOOL_TOK IDENT LPAR}
+
+# FIRST(var_decl) = {INT_TOK, FLOAT_TOK, BOOL_TOK}
+# LL(0)
+var_decl ::= var_type IDENT SC
+
+# FIRST(type_spec) = {VOID_TOK, INT_TOK, FLOAT_TOK, BOOL_TOK}
+# LL(1)
+type_spec ::= VOID_TOK                    {VOID_TOK}
+            | var_type                    {INT_TOK, FLOAT_TOK, BOOL_TOK}
+
+# FIRST(var_type) = {INT_TOK, FLOAT_TOK, BOOL_TOK}
+# LL(0)
+var_type ::= INT_TOK | FLOAT_TOK | BOOL_TOK
+
+# FIRST(fun_decl) = {VOID_TOK, INT_TOK, FLOAT_TOK, BOOL_TOK}
+# LL(0)
+fun_decl ::= type_spec IDENT LPAR params RPAR block
+
+# FIRST(params) = {VOID_TOK, INT_TOK, FLOAT_TOK, BOOL_TOK, epsilon}
+# FOLLOW(params) = {RPAR}
+# LL(1)
+params ::= param_list                     {INT_TOK, FLOAT_TOK, BOOL_TOK}
+         | VOID_TOK                       {VOID_TOK}
+         | epsilon                        {RPAR}
+
+# FIRST(param_list) = {INT_TOK, FLOAT_TOK, BOOL_TOK}
+# LL (0)
+param_list ::= param param_list'
+
+# FIRST(param_list') = {COMMA, epsilon}
+# FOLLOW(param_list') = {RPAR}
+# LL(1)
+param_list' ::= COMMA param param_list'   {COMMA}
+              | epsilon                   {RPAR}
+
+# FIRST(param) = {INT_TOK, FLOAT_TOK, BOOL_TOK}
+# LL(0)
+param ::= var_type IDENT
+
+# FIRST(block) = {LBRA}
+# LL(0)
+block ::= LBRA local_decls stmt_list RBRA
+
+
+local_decls ::= local_decl local_decls
+              | epsilon
+
+# FIRST(local_decl) = {INT_TOK, FLOAT_TOK, BOOL_TOK}
+# LL(0)
+local_decl ::= var_type IDENT SC
+
+
+
+stmt_list ::= stmt stmt_list
+            | epsilon
+stmt ::= expr_stmt {MINUS, NOT, LPAR, IDENT, INT_LIT, FLOAT_LIT, BOOL_LIT}
+       | block {LBRA}
+       | if_stmt {IF}
+       | while_stmt {WHILE}
+       | return_stmt {RETURN}
+
+expr_stmt ::= expr SC
+            | SC
+
+# FIRST(while_stmt) = {WHILE}
+while_stmt ::= WHILE LPAR expr RPAR stmt
+
+# FIRST(if_stmt) = {IF}
+if_stmt ::= IF LPAR expr RPAR block else_stmt
+
+# FIRST(else_stmt) = {ELSE, epsilon}
+else_stmt ::= ELSE block
+            | epsilon
+
+# FIRST(return_stmt) = {RETURN}
+return_stmt ::= RETURN SC
+              | RETURN expr SC
+
+# operators in order of increasing precedence
+
+# FIRST(expr) = {MINUS, NOT, LPAR, IDENT, INT_LIT, FLOAT_LIT, BOOL_LIT}
+# FOLLOW(expr) = {SC, RPAR}
+# 
+expr ::= IDENT ASSIGN expr                                            {IDENT ASSIGN}
+       | or_op                                                        {MINUS, NOT, LPAR, IDENT, INT_LIT, FLOAT_LIT, BOOL_LIT}
+
+# FIRST(or_op) = {MINUS, NOT, LPAR, IDENT, INT_LIT, FLOAT_LIT, BOOL_LIT}
+# FOLLOW(or_op) = {SC, RPAR}
+or_op ::= and_op or_op'
+
+# FIRST(or_op') = {OR, epsilon}
+# FOLLOW ("")
+or_op' ::= OR and_op or_op'
+         | epsilon
+
+# FIRST(and_op) = {MINUS, NOT, LPAR, IDENT, INT_LIT, FLOAT_LIT, BOOL_LIT}
+#
+and_op ::= equality_op and_op'
+
+# FIRST(and_op') = {AND, epsilon}
+#
+and_op' ::= AND equality_op and_op'
+          | epsilon
+
+# FIRST(equality_op) = {MINUS, NOT, LPAR, IDENT, INT_LIT, FLOAT_LIT, BOOL_LIT}
+#
+equality_op ::= comparison_op equality_op'
+
+# FIRST(equality_op') = {EQ, NE, epsilon}
+#
+equality_op' ::= EQ comparison_op equality_op'
+               | NE comparison_op equality_op'
+               | epsilon
+
+# FIRST(comparison_op) = {MINUS, NOT, LPAR, IDENT, INT_LIT, FLOAT_LIT, BOOL_LIT}
+#
+comparison_op ::= addition_op comparison_op'
+
+# FIRST(comparison_op') = {LE, LT, GE, GT, epsilon}
+#
+comparison_op' ::= LE addition_op comparison_op'
+                 | LT addition_op comparison_op'
+                 | GE addition_op comparison_op'
+                 | GT addition_op comparison_op'
+                 | epsilon
+
+# FIRST(addition_op) = {MINUS, NOT, LPAR, IDENT, INT_LIT, FLOAT_LIT, BOOL_LIT}
+#
+addition_op ::= multiplication_op addition_op'
+
+# FIRST(addition_op') = {PLUS, MINUS, epsilon}
+#
+addition_op' ::= PLUS multiplication_op addition_op'
+               | MINUS multiplication_op addition_op'
+               | epsilon
+
+# FIRST(multiplication_op) = {MINUS, NOT, LPAR, IDENT, INT_LIT, FLOAT_LIT, BOOL_LIT}
+#
+multiplication_op ::= unary_op multiplication_op'
+
+# FIRST(multiplication_op') = {ASTERIX, DIV, MOD, epsilon}
+#
+multiplication_op' ::= ASTERIX unary_op multiplication_op'
+                     | DIV unary_op multiplication_op'
+                     | MOD unary_op multiplication_op'
+                     | epsilon
+
+# FIRST(unary_op) = {MINUS, NOT, LPAR, IDENT, INT_LIT, FLOAT_LIT, BOOL_LIT}
+#
+unary_op ::= MINUS primary
+           | NOT primary
+           | primary
+
+# FIRST(primary) = {LPAR, IDENT, INT_LIT, FLOAT_LIT, BOOL_LIT}
+# FOLLOW(primary) = {}
+# 
+primary ::= LPAR expr RPAR                                            {LPAR}
+          | IDENT                                                     {IDENT}
+          | IDENT LPAR args RPAR                                      {IDENT}
+          | INT_LIT
+          | FLOAT_LIT
+          | BOOL_LIT
+
+# FOLLOW(args) = {RPAR}
+args ::= arg_list
+       | epsilon
+
+# FOLLOW(arg_list) = {RPAR}
+arg_list ::= expr arg_list'
+
+arg_list' ::= COMMA expr arg_list'
+            | epsilon
